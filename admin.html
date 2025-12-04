@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Painel Admin – Criar Tutorial</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: auto;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 15px;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      margin-top: 5px;
+      box-sizing: border-box;
+    }
+    button {
+      margin-top: 20px;
+      padding: 12px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Criar novo tutorial</h1>
+
+  <form id="postForm">
+    <label>Título</label>
+    <input type="text" id="title" required />
+
+    <label>Tags (separadas por vírgula)</label>
+    <input type="text" id="tags" />
+
+    <label>Conteúdo</label>
+    <textarea id="content" rows="8" required></textarea>
+
+    <label>Imagem de capa</label>
+    <input type="file" id="image" accept="image/*" />
+
+    <button type="submit">Publicar Tutorial</button>
+  </form>
+
+  <script>
+    document.getElementById('postForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const title = document.getElementById('title').value.trim();
+      const tags = document.getElementById('tags').value.trim().split(',').map(t => t.trim()).filter(t => t);
+      const content = document.getElementById('content').value.trim();
+      const imageFile = document.getElementById('image').files[0];
+
+      alert('Aqui vai entrar o script para salvar no GitHub (via API) e atualizar o index.json.');
+    });
+  </script>
+</body>
+</html>
