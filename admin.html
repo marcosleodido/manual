@@ -1,68 +1,61 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Painel Admin – Criar Tutorial</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      max-width: 800px;
-      margin: auto;
-    }
-    h1 {
-      margin-bottom: 20px;
-    }
-    label {
-      font-weight: bold;
-      display: block;
-      margin-top: 15px;
-    }
-    input, textarea {
-      width: 100%;
-      padding: 10px;
-      margin-top: 5px;
-      box-sizing: border-box;
-    }
-    button {
-      margin-top: 20px;
-      padding: 12px 20px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-  </style>
-</head>
-<body>
-  <h1>Criar novo tutorial</h1>
+<script>
+<script src="token.js"></script> 
+const REPO_OWNER = "marcosleodido";
+const REPO_NAME = "manual";
+const BRANCH = "main";
 
-  <form id="postForm">
-    <label>Título</label>
-    <input type="text" id="title" required />
+// Função para enviar arquivo para o GitHub
+async function uploadToGitHub(path, content) {
+  const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}`;
 
-    <label>Tags (separadas por vírgula)</label>
-    <input type="text" id="tags" />
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: {
+      "Authorization": `Bearer ${GITHUB_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      message: `Criar arquivo ${path}`,
+      content: btoa(unescape(encodeURIComponent(content))),
+      branch: BRANCH
+    })
+  });
 
-    <label>Conteúdo</label>
-    <textarea id="content" rows="8" required></textarea>
+  return response.json();
+}
 
-    <label>Imagem de capa</label>
-    <input type="file" id="image" accept="image/*" />
+document.getElementById("postForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
 
-    <button type="submit">Publicar Tutorial</button>
-  </form>
+  const title = document.getElementById("title").value.trim();
+  const tags = document.getElementById("tags").value.trim().split(",").map(t => t.trim());
+  const content = document.getElementById("content").value.trim();
+  const imageFile = document.getElementById("image").files[0];
 
-  <script>
-    document.getElementById('postForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
+  const filename = title.toLowerCase().replace(/ /g, "-") + ".json";
+  const postPath = `posts/${filename}`;
 
-      const title = document.getElementById('title').value.trim();
-      const tags = document.getElementById('tags').value.trim().split(',').map(t => t.trim()).filter(t => t);
-      const content = document.getElementById('content').value.trim();
-      const imageFile = document.getElementById('image').files[0];
+  const postData = {
+    title,
+    tags,
+    content,
+    image: imageFile ? imageFile.name : null,
+    date: new Date().toISOString()
+  };
 
-      alert('Aqui vai entrar o script para salvar no GitHub (via API) e atualizar o index.json.');
-    });
-  </script>
-</body>
-</html>
+  // 1) Criar arquivo do tutorial
+  await uploadToGitHub(postPath, JSON.stringify(postData, null, 2));
+
+  // 2) Se tiver imagem, fazer upload dela
+  if (imageFile) {
+    const imgBuffer = await imageFile.arrayBuffer();
+    const base64Image = btoa(
+      new Uint8Array(imgBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+    );
+
+    await uploadToGitHub(`posts/${imageFile.name}`, base64Image);
+  }
+
+  alert("Tutorial publicado com sucesso!");
+});
+</script>
