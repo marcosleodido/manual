@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mini CMS + Busca (Local)</title>
+  <style>
+    :root{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;}
+    body{max-width:980px;margin:20px auto;padding:16px;line-height:1.5;color:#111}
+    header{display:flex;gap:12px;align-items:center}
+    input,textarea,button,select{font-family:inherit;padding:8px;border:1px solid #ddd;border-radius:6px}
+    .grid{display:grid;grid-template-columns:1fr 350px;gap:18px}
+    .card{border:1px solid #eee;padding:12px;border-radius:8px;background:#fafafa}
+    .result{margin-bottom:12px;padding:10px;border-radius:6px;border:1px solid #e6e6e6}
+    img.thumb{max-width:150px;display:block;margin-top:8px;border-radius:6px}
+    .help{font-size:13px;color:#444;margin-top:8px}
+    label{display:block;margin-top:8px;font-weight:600}
+    .tags{font-size:13px;color:#666}
+    .small{font-size:13px;color:#666}
+    pre{background:#111;color:#fff;padding:10px;border-radius:6px;overflow:auto}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Mini CMS + Busca</h1>
+    <div class="small">(Use para criar posts localmente e exportar JSON/imagens)</div>
+  </header>
+
+  <div class="grid">
+    <main>
+      <div class="card">
+        <label for="search">🔎 Buscar</label>
+        <input id="search" placeholder="Digite: ex: cadastrar NCM, NCM, DARE..." />
+        <div id="results" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Resultados carregados (posts locais)</h3>
+        <div id="loadedList" class="small"></div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Ajuda rápida</h3>
+        <div class="help">
+          <ol>
+            <li>Crie posts aqui no formulário à direita.</li>
+            <li>Use "Exportar JSON" para gerar um arquivo .json pronto pra subir no GitHub (pasta /posts).</li>
+            <li>Use "Exportar Imagem" para baixar a imagem usada — suba essa imagem em /images no GitHub.</li>
+            <li>Se for usar no GitHub Pages, crie/edite o arquivo <code>/posts/index.json</code> com a lista dos seus posts (nome dos arquivos .json).</li>
+          </ol>
+        </div>
+      </div>
+    </main>
+
+    <aside>
+      <div class="card">
+        <h3>Criar / Exportar conteúdo</h3>
+        <label>Título</label>
+        <input id="title" />
+        <label>Tags (vírgula)</label>
+        <input id="tags" placeholder="ex: ncm, fiscal, cadastro" />
+        <label>Texto</label>
+        <textarea id="body" rows="8" placeholder="Escreva o tutorial aqui..."></textarea>
+        <label>Imagem (opcional)</label>
+        <input id="image" type="file" accept="image/*" />
+
+        <div style="margin-top:8px;display:flex;gap:6px">
+          <button id="saveLocal">Salvar no browser (localStorage)</button>
+          <button id="exportJson">Exportar JSON</button>
+        </div>
+        <div style="margin-top:8px;display:flex;gap:6px">
+          <button id="downloadImage">Exportar Imagem</button>
+          <button id="clearAll">Limpar tudo</button>
+        </div>
+
+        <div style="margin-top:10px" class="small">
+          <b>Observação:</b> o app funciona offline no seu navegador. Para publicar no GitHub Pages siga as instruções na seção "Deploy" (abaixo).
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Deploy (passo a passo para GitHub)</h3>
+        <ol class="small">
+          <li>Crie um repositório no GitHub (ex: <code>meu-mini-cms</code>).</li>
+          <li>Adicione estas pastas: <code>/posts</code> e <code>/images</code>.</li>
+          <li>Para cada post, suba o arquivo JSON (ex: <code>posts/tutorial-ncm.json</code>).</li>
+          <li>Suba as imagens em <code>/images</code> e referencie o caminho no JSON.</li>
+          <li>Atualize <code>posts/index.json</code> contendo a lista de arquivos: <code>["tutorial-ncm.json"]</code>.</li>
+          <li>No repositório vá em Settings → Pages e publique a branch main (ou gh-pages).</li>
+        </ol>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h3>Exemplo de JSON</h3>
+        <pre id="exampleJson">{
+  "titulo": "Como cadastrar um NCM",
+  "tags": ["ncm","cadastro","fiscal"],
+  "texto": "Passo a passo...",
+  "imagens": ["/images/ncm-passo-1.png"]
+}
+</pre>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    // simples mini-cms front-end
+    const searchInput = document.getElementById('search');
+    const resultsEl = document.getElementById('results');
+    const loadedList = document.getElementById('loadedList');
+
+    let posts = []; // in-memory
+
+    // load from localStorage
+    function loadLocalPosts(){
+      const raw = localStorage.getItem('mini_cms_posts');
+      posts = raw ? JSON.parse(raw) : [];
+      renderLoadedList();
+    }
+
+    function renderLoadedList(){
+      if(posts.length===0){ loadedList.textContent = 'Nenhum post salvo localmente.'; return }
+      loadedList.innerHTML = posts.map(p=>`• <b>${escapeHtml(p.titulo)}</b> <span class="tags">(${(p.tags||[]).join(', ')})</span>`).join('<br>');
+    }
+
+    function escapeHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+    function renderResults(list){
+      if(list.length===0){ resultsEl.innerHTML = '<div class="small">Nenhum resultado.</div>'; return }
+      resultsEl.innerHTML = list.map(p=>{
+        const imgs = (p.imagens||[]).map(u=>`<img class="thumb" src="${u}" alt="img">`).join('');
+        return `<div class="result"><h4>${escapeHtml(p.titulo)}</h4><div class="tags">${(p.tags||[]).join(', ')}</div><p>${escapeHtml(p.texto).replace(/\n/g,'<br>')}</p>${imgs}</div>`;
+      }).join('\n');
+    }
+
+    searchInput.addEventListener('input',()=>{
+      const q = searchInput.value.trim().toLowerCase();
+      if(!q){ renderResults(posts); return }
+      const filtered = posts.filter(p=>{
+        const hay = (p.titulo+' '+(p.tags||[]).join(' ')+' '+p.texto).toLowerCase();
+        return hay.includes(q);
+      });
+      renderResults(filtered);
+    });
+
+    // form actions
+    document.getElementById('saveLocal').addEventListener('click',()=>{
+      const t = document.getElementById('title').value.trim();
+      if(!t){ alert('Coloca um título, meu brother.'); return }
+      const tags = document.getElementById('tags').value.split(',').map(s=>s.trim()).filter(Boolean);
+      const body = document.getElementById('body').value;
+      const fileInput = document.getElementById('image');
+      if(fileInput.files && fileInput.files[0]){
+        const reader = new FileReader();
+        reader.onload = ()=>{
+          const dataUrl = reader.result;
+          const post = {titulo:t,tags:tags,texto:body,imagens:[dataUrl]};
+          posts.unshift(post);
+          localStorage.setItem('mini_cms_posts',JSON.stringify(posts));
+          renderLoadedList();
+          alert('Salvo no navegador (localStorage). Use Exportar JSON para gerar o arquivo pra GitHub.');
+          clearForm();
+          renderResults(posts);
+        };
+        reader.readAsDataURL(fileInput.files[0]);
+      } else {
+        const post = {titulo:t,tags:tags,texto:body,imagens:[]};
+        posts.unshift(post);
+        localStorage.setItem('mini_cms_posts',JSON.stringify(posts));
+        renderLoadedList();
+        alert('Salvo no navegador (localStorage).');
+        clearForm();
+        renderResults(posts);
+      }
+    });
+
+    function clearForm(){ document.getElementById('title').value=''; document.getElementById('tags').value=''; document.getElementById('body').value=''; document.getElementById('image').value=''; }
+
+    // export JSON: baixa um arquivo .json do primeiro post (ou selecionado)
+    document.getElementById('exportJson').addEventListener('click',()=>{
+      if(posts.length===0){ alert('Nenhum post salvo localmente.'); return }
+      const post = posts[0];
+      // convert dataUrl images to plain filenames placeholder for GitHub
+      const jsonForGit = Object.assign({},post);
+      jsonForGit.imagens = (post.imagens||[]).map((img,i)=>`/images/${slugify(post.titulo)}-${i+1}.png`);
+      const blob = new Blob([JSON.stringify(jsonForGit,null,2)],{type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href=url; a.download = `${slugify(post.titulo)}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      alert('Arquivo JSON gerado. Lembre-se de subir também a(s) imagem(ns) em /images com os nomes usados no JSON.');
+    });
+
+    // export image (gera arquivos a partir do dataURL e force download)
+    document.getElementById('downloadImage').addEventListener('click',()=>{
+      if(posts.length===0){ alert('Nenhum post com imagem.'); return }
+      const post = posts[0];
+      if(!post.imagens || post.imagens.length===0){ alert('Esse post não tem imagens.'); return }
+      post.imagens.forEach((dataUrl,i)=>{
+        const arr = dataUrl.split(',');
+        const mime = arr[0].match(/:(.*?);/)[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length; const u8 = new Uint8Array(n);
+        while(n--) u8[n]=bstr.charCodeAt(n);
+        const blob = new Blob([u8],{type:mime});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href=url; a.download = `${slugify(post.titulo)}-${i+1}.png`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      });
+      alert('Imagens baixadas. Suba em /images no GitHub com os nomes sugeridos no JSON.');
+    });
+
+    document.getElementById('clearAll').addEventListener('click',()=>{ if(confirm('Limpar posts salvos no navegador?')){ localStorage.removeItem('mini_cms_posts'); posts=[]; renderLoadedList(); renderResults([]); } });
+
+    function slugify(s){ return s.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
+
+    // inicial
+    loadLocalPosts();
+    renderResults(posts);
+
+    // dica: se você quiser carregar posts do GitHub (de /posts/index.json), você pode fazer algo assim:
+    // fetch('/posts/index.json').then(r=>r.json()).then(list => Promise.all(list.map(f=>fetch('/posts/'+f).then(r=>r.json())))).then(arr=>{ posts = arr.concat(posts); renderLoadedList(); renderResults(posts); });
+
+  </script>
+</body>
+</html>
