@@ -1,61 +1,99 @@
-<script src="token.js"></script>
-<script> 
-const REPO_OWNER = "marcosleodido";
-const REPO_NAME = "manual";
-const BRANCH = "main";
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Painel Admin</title>
+</head>
+<body>
+  <h1>Criar Tutorial</h1>
 
-// Função para enviar arquivo para o GitHub
-async function uploadToGitHub(path, content) {
-  const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}`;
+  <form id="postForm">
+    <input type="text" id="title" placeholder="Título" required /><br><br>
+    <input type="text" id="tags" placeholder="Tags separadas por vírgula" /><br><br>
+    <textarea id="content" placeholder="Conteúdo do tutorial" required></textarea><br><br>
+    <input type="file" id="image" /><br><br>
 
-  const response = await fetch(url, {
-    method: "PUT",
-    headers: {
-      "Authorization": `Bearer ${GITHUB_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      message: `Criar arquivo ${path}`,
-      content: btoa(unescape(encodeURIComponent(content))),
-      branch: BRANCH
-    })
-  });
+    <button type="submit">Publicar Tutorial</button>
+  </form>
 
-  return response.json();
-}
+  <script src="token.js"></script>
 
-document.getElementById("postForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
+  <script>
+    const REPO_OWNER = "marcosleodido";
+    const REPO_NAME = "manual";
+    const BRANCH = "main";
 
-  const title = document.getElementById("title").value.trim();
-  const tags = document.getElementById("tags").value.trim().split(",").map(t => t.trim());
-  const content = document.getElementById("content").value.trim();
-  const imageFile = document.getElementById("image").files[0];
+    async function upload(path, content, encode = false) {
+      const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/${path}`;
 
-  const filename = title.toLowerCase().replace(/ /g, "-") + ".json";
-  const postPath = `posts/${filename}`;
+      const body = {
+        message: "Atualizar arquivo " + path,
+        branch: BRANCH,
+        content: encode ? btoa(content) : btoa(unescape(encodeURIComponent(content)))
+      };
 
-  const postData = {
-    title,
-    tags,
-    content,
-    image: imageFile ? imageFile.name : null,
-    date: new Date().toISOString()
-  };
+      const r = await fetch(url, {
+        method: "PUT",
+        headers: {
+          "Authorization": `Bearer ${GITHUB_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body)
+      });
 
-  // 1) Criar arquivo do tutorial
-  await uploadToGitHub(postPath, JSON.stringify(postData, null, 2));
+      return r.json();
+    }
 
-  // 2) Se tiver imagem, fazer upload dela
-  if (imageFile) {
-    const imgBuffer = await imageFile.arrayBuffer();
-    const base64Image = btoa(
-      new Uint8Array(imgBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
-    );
+    async function loadIndex() {
+      const url = `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${BRANCH}/posts/index.json`;
+      try {
+        const r = await fetch(url);
+        return await r.json();
+      } catch {
+        return [];
+      }
+    }
 
-    await uploadToGitHub(`posts/${imageFile.name}`, base64Image);
-  }
+    document.getElementById("postForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
 
-  alert("Tutorial publicado com sucesso!");
-});
-</script>
+      const title = document.getElementById("title").value.trim();
+      const tags = document.getElementById("tags").value.trim().split(",").map(t => t.trim()).filter(t => t);
+      const content = document.getElementById("content").value.trim();
+      const imageFile = document.getElementById("image").files[0];
+
+      const filename = title.toLowerCase().replace(/ /g, "-") + ".json";
+
+      // JSON NO FORMATO CORRETO PARA O SITE
+      const postData = {
+        titulo: title,
+        texto: content,
+        tags: tags,
+        imagens: imageFile ? [imageFile.name] : []
+      };
+
+      // 1) Upload do JSON
+      await upload("posts/" + filename, JSON.stringify(postData, null, 2));
+
+      // 2) Upload da imagem
+      if (imageFile) {
+        const buffer = await imageFile.arrayBuffer();
+        const base64 = btoa(
+          new Uint8Array(buffer).reduce((d, b) => d + String.fromCharCode(b), "")
+        );
+        await upload("posts/" + imageFile.name, base64, true);
+      }
+
+      // 3) ATUALIZAÇÃO AUTOMÁTICA DO index.json
+      let indexList = await loadIndex();
+      if (!indexList.includes(filename)) {
+        indexList.push(filename);
+      }
+
+      await upload("posts/index.json", JSON.stringify(indexList, null, 2));
+
+      alert("Tutorial publicado e index atualizado!");
+    });
+  </script>
+</body>
+</html>
